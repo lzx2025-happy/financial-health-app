@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>财务体检 - 个人财务健康智能评估系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 登录页面 -->
+        <div id="login-page" class="page active">
+            <div class="login-container">
+                <div class="login-card">
+                    <div class="logo">
+                        <i class="fas fa-chart-line"></i>
+                        <h1>财务体检</h1>
+                    </div>
+                    <form id="login-form">
+                        <div class="form-group">
+                            <input type="email" id="email" placeholder="邮箱地址" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="password" id="password" placeholder="密码" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">登录</button>
+                    </form>
+                    <p class="switch-form">
+                        没有账户？ <a href="#" id="show-register">立即注册</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 注册页面 -->
+        <div id="register-page" class="page">
+            <div class="login-container">
+                <div class="login-card">
+                    <div class="logo">
+                        <i class="fas fa-chart-line"></i>
+                        <h1>注册账户</h1>
+                    </div>
+                    <form id="register-form">
+                        <div class="form-group">
+                            <input type="text" id="reg-name" placeholder="姓名" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="email" id="reg-email" placeholder="邮箱地址" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="password" id="reg-password" placeholder="密码" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">注册</button>
+                    </form>
+                    <p class="switch-form">
+                        已有账户？ <a href="#" id="show-login">立即登录</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主应用页面 -->
+        <div id="main-app" class="page">
+            <!-- 顶部导航 -->
+            <header class="app-header">
+                <div class="header-content">
+                    <div class="logo">
+                        <i class="fas fa-chart-line"></i>
+                        <span>财务体检</span>
+                    </div>
+                    <div class="user-menu">
+                        <div class="user-info">
+                            <span id="user-name">用户</span>
+                            <div class="avatar" id="user-avatar">张</div>
+                        </div>
+                        <button id="logout-btn" class="btn btn-outline">退出</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 主要内容区域 -->
+            <main class="app-main">
+                <!-- 侧边栏 -->
+                <aside class="sidebar">
+                    <nav class="sidebar-nav">
+                        <a href="#" class="nav-item active" data-page="dashboard">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>仪表盘</span>
+                        </a>
+                        <a href="#" class="nav-item" data-page="accounts">
+                            <i class="fas fa-wallet"></i>
+                            <span>账户管理</span>
+                        </a>
+                        <a href="#" class="nav-item" data-page="transactions">
+                            <i class="fas fa-exchange-alt"></i>
+                            <span>交易记录</span>
+                        </a>
+                        <a href="#" class="nav-item" data-page="goals">
+                            <i class="fas fa-bullseye"></i>
+                            <span>财务目标</span>
+                        </a>
+                        <a href="#" class="nav-item" data-page="analysis">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>财务分析</span>
+                        </a>
+                        <a href="#" class="nav-item" data-page="profile">
+                            <i class="fas fa-user-cog"></i>
+                            <span>个人设置</span>
+                        </a>
+                    </nav>
+                </aside>
+
+                <!-- 页面内容 -->
+                <div class="content-area">
+                    <!-- 仪表盘页面 -->
+                    <div id="dashboard-page" class="content-page active">
+                        <div class="page-header">
+                            <h2>财务健康仪表盘</h2>
+                            <button class="btn btn-primary" id="sync-data">
+                                <i class="fas fa-sync-alt"></i> 同步数据
+                            </button>
+                        </div>
+                        
+                        <div class="dashboard-grid">
+                            <!-- 财务健康评分 -->
+                            <div class="card health-score-card">
+                                <div class="card-header">
+                                    <h3>财务健康评分</h3>
+                                    <i class="fas fa-heartbeat"></i>
+                                </div>
+                                <div class="score-display">
+                                    <div class="score-circle" id="health-score-circle">
+                                        <div class="score-inner">
+                                            <div class="score-value" id="health-score">--</div>
+                                            <div class="score-label">综合得分</div>
+                                        </div>
+                                    </div>
+                                    <div class="score-grade" id="health-grade">--</div>
+                                </div>
+                                <div class="health-indicators">
+                                    <div class="indicator" id="debt-ratio-indicator">
+                                        <span class="indicator-label">负债率</span>
+                                        <div class="indicator-bar">
+                                            <div class="indicator-progress"></div>
+                                        </div>
+                                        <span class="indicator-value">--</span>
+                                    </div>
+                                    <div class="indicator" id="savings-rate-indicator">
+                                        <span class="indicator-label">储蓄率</span>
+                                        <div class="indicator-bar">
+                                            <div class="indicator-progress"></div>
+                                        </div>
+                                        <span class="indicator-value">--</span>
+                                    </div>
+                                    <div class="indicator" id="emergency-ratio-indicator">
+                                        <span class="indicator-label">应急比</span>
+                                        <div class="indicator-bar">
+                                            <div class="indicator-progress"></div>
+                                        </div>
+                                        <span class="indicator-value">--</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 风险预警 -->
+                            <div class="card alerts-card">
+                                <div class="card-header">
+                                    <h3>风险预警</h3>
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <div class="alerts-list" id="alerts-list">
+                                    <!-- 动态生成预警信息 -->
+                                </div>
+                            </div>
+
+                            <!-- 财务建议 -->
+                            <div class="card recommendations-card">
+                                <div class="card-header">
+                                    <h3>个性化建议</h3>
+                                    <i class="fas fa-lightbulb"></i>
+                                </div>
+                                <div class="recommendations-list" id="recommendations-list">
+                                    <!-- 动态生成建议 -->
+                                </div>
+                            </div>
+
+                            <!-- 资产分布 -->
+                            <div class="card assets-card">
+                                <div class="card-header">
+                                    <h3>资产分布</h3>
+                                    <i class="fas fa-chart-pie"></i>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="assets-chart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- 现金流分析 -->
+                            <div class="card cashflow-card">
+                                <div class="card-header">
+                                    <h3>月度现金流</h3>
+                                    <i class="fas fa-money-bill-wave"></i>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="cashflow-chart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- 财务目标 -->
+                            <div class="card goals-card">
+                                <div class="card-header">
+                                    <h3>财务目标</h3>
+                                    <i class="fas fa-bullseye"></i>
+                                </div>
+                                <div class="goals-list" id="goals-list">
+                                    <!-- 动态生成目标 -->
+                                </div>
+                                <button class="btn btn-outline add-goal-btn">
+                                    <i class="fas fa-plus"></i> 添加新目标
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 其他页面内容会在JS中动态加载 -->
+                    <div id="accounts-page" class="content-page"></div>
+                    <div id="transactions-page" class="content-page"></div>
+                    <div id="goals-page" class="content-page"></div>
+                    <div id="analysis-page" class="content-page"></div>
+                    <div id="profile-page" class="content-page"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 模态框容器 -->
+    <div id="modal-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
