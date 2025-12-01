@@ -10,12 +10,11 @@ const app = express();
 // ========== 修改1：兼容两个变量名 ==========
 const jwtSecret = process.env.JWT_SECRET || process.env.JMT_SECRET;
 if (!jwtSecret) {
-    console.error('❌ 错误：未设置 JWT_SECRET 或 JMT_SECRET 环境变量');
+    console.error('❌ 错误：未设置 JWT_SECRET 或 JMT_SECRET 环境变量'); // 注意：是 JWT_SECRET
     process.exit(1);
 }
 console.log('🔑 JWT密钥状态:', jwtSecret ? '已设置' : '未设置');
 // ========== 修改结束 ==========
-
 // 中间件
 app.use(cors());
 app.use(express.json());
