@@ -1,0 +1,8 @@
+{
+  "variables": {
+    "APP_SECRET": {
+      "value": "YourSecretKey123!@#2023",
+      "description": "应用密钥"
+    }
+  }
+}
