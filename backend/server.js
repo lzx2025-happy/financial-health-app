@@ -1,3 +1,8 @@
+console.log('=== 环境变量调试 ===');
+console.log('所有变量:', Object.keys(process.env));
+console.log('JMT_SECRET 存在吗?', 'JMT_SECRET' in process.env);
+console.log('JMT_SECRET 值:', process.env.JMT_SECRET ? '已设置（值隐藏）' : '未设置');
+console.log('当前环境:', process.env.NODE_ENV);
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
