@@ -7,16 +7,65 @@ require('dotenv').config();
 
 const app = express();
 
+// 环境变量检查
+if (!process.env.JWT_SECRET) {
+    console.error('❌ 错误：未设置 JWT_SECRET 环境变量');
+    process.exit(1);
+}
+
 // 中间件
 app.use(cors());
 app.use(express.json());
-app.use(express.static('../frontend'));
 
-// 数据库连接
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/financial_health', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
+// ========== 数据库连接处理 - 增强版 ==========
+console.log('🔍 检查环境变量...');
+console.log('JWT_SECRET:', process.env.JWT_SECRET ? '已设置' : '未设置');
+
+// 尝试获取 MongoDB 连接字符串的多种可能名称
+let mongoURI = process.env.MONGODB_URI || process.env.DATABASE_URL || process.env.MONGO_URL;
+
+console.log('原始 MONGODB_URI:', process.env.MONGODB_URI ? '已设置' : '未设置');
+console.log('原始 DATABASE_URL:', process.env.DATABASE_URL ? '已设置' : '未设置');
+console.log('原始 MONGO_URL:', process.env.MONGO_URL ? '已设置' : '未设置');
+
+// 清理连接字符串：移除所有空白字符（空格、换行等）
+if (mongoURI) {
+  // 移除所有空格、换行、制表符等空白字符
+  mongoURI = mongoURI.replace(/\s/g, '');
+  console.log('清理后的连接字符串:', mongoURI.substring(0, 60) + '...');
+} else {
+  // 如果所有环境变量都没有，使用 Railway 内部默认地址
+  console.log('⚠️ 未找到MongoDB连接字符串，使用默认地址');
+  mongoURI = 'mongodb://mongo:27017/financial_health';
+}
+
+// 连接数据库
+console.log('正在连接 MongoDB...');
+mongoose.connect(mongoURI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 10000, // 10秒超时
+  socketTimeoutMS: 45000,
 });
+
+mongoose.connection.on('connected', () => {
+  console.log('✅ MongoDB 连接成功！');
+  console.log('数据库地址:', mongoose.connection.host);
+  console.log('数据库名称:', mongoose.connection.name);
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB 连接失败:');
+  console.error('错误信息:', err.message);
+  console.error('错误代码:', err.code);
+  console.error('使用的连接字符串:', mongoURI);
+  
+  // 如果是认证错误，提示检查密码
+  if (err.code === 8000 || err.message.includes('authentication')) {
+    console.error('💡 提示：请检查MongoDB用户名和密码是否正确');
+  }
+});
+// ========== 结束数据库连接处理 ==========
 
 // 数据模型
 const User = require('./models/User');
@@ -30,7 +79,7 @@ const authMiddleware = async (req, res, next) => {
             return res.status(401).json({ message: '未提供认证令牌' });
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.userId);
         if (!user) {
             return res.status(401).json({ message: '认证失败' });
@@ -42,6 +91,17 @@ const authMiddleware = async (req, res, next) => {
         res.status(401).json({ message: '认证失败' });
     }
 };
+
+// 健康检查端点（Railway 需要）
+app.get('/health', (req, res) => {
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    res.status(200).json({ 
+        status: 'ok',
+        timestamp: new Date(),
+        mongodb: dbStatus,
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
 
 // 路由
 // 认证路由
@@ -68,7 +128,7 @@ app.post('/api/auth/register', async (req, res) => {
         // 生成JWT令牌
         const token = jwt.sign(
             { userId: user._id },
-            process.env.JWT_SECRET || 'your-secret-key',
+            process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
 
@@ -82,6 +142,7 @@ app.post('/api/auth/register', async (req, res) => {
             }
         });
     } catch (error) {
+        console.error('注册错误:', error);
         res.status(500).json({ message: '服务器错误' });
     }
 });
@@ -105,7 +166,7 @@ app.post('/api/auth/login', async (req, res) => {
         // 生成JWT令牌
         const token = jwt.sign(
             { userId: user._id },
-            process.env.JWT_SECRET || 'your-secret-key',
+            process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
 
@@ -119,6 +180,7 @@ app.post('/api/auth/login', async (req, res) => {
             }
         });
     } catch (error) {
+        console.error('登录错误:', error);
         res.status(500).json({ message: '服务器错误' });
     }
 });
@@ -203,6 +265,7 @@ app.get('/api/dashboard', authMiddleware, async (req, res) => {
 
         res.json(dashboardData);
     } catch (error) {
+        console.error('获取仪表盘错误:', error);
         res.status(500).json({ message: '获取仪表盘数据失败' });
     }
 });
@@ -218,6 +281,7 @@ app.post('/api/data/sync', authMiddleware, async (req, res) => {
             res.json({ message: '数据同步成功', syncedAt: new Date() });
         }, 2000);
     } catch (error) {
+        console.error('数据同步错误:', error);
         res.status(500).json({ message: '数据同步失败' });
     }
 });
@@ -228,11 +292,14 @@ app.post('/api/upload/csv', authMiddleware, async (req, res) => {
         // 这里应该实现CSV文件解析和数据处理
         res.json({ message: '文件上传成功', processed: true });
     } catch (error) {
+        console.error('文件上传错误:', error);
         res.status(500).json({ message: '文件处理失败' });
     }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`服务器运行在端口 ${PORT}`);
+    console.log(`🚀 服务器运行在端口 ${PORT}`);
+    console.log(`📊 健康检查: http://localhost:${PORT}/health`);
+    console.log(`🔄 Railway 自动部署版本: ${new Date().toISOString()}`);
 });

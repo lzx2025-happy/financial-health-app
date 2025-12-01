@@ -404,3 +404,46 @@ class FinancialHealthApp {
 document.addEventListener('DOMContentLoaded', () => {
     new FinancialHealthApp();
 });
+// 模拟登录功能
+document.getElementById('login-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    
+    if (email && password) {
+        // 隐藏登录页，显示主应用
+        document.getElementById('login-page').classList.remove('active');
+        document.getElementById('main-app').classList.add('active');
+        
+        // 加载模拟数据
+        loadMockData();
+    } else {
+        alert('请输入邮箱和密码');
+    }
+});
+
+// 模拟注册功能
+document.getElementById('register-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('reg-name').value;
+    const email = document.getElementById('reg-email').value;
+    const password = document.getElementById('reg-password').value;
+    
+    if (name && email && password) {
+        alert('注册成功！已自动登录');
+        document.getElementById('register-page').classList.remove('active');
+        document.getElementById('main-app').classList.add('active');
+        loadMockData();
+    }
+});
+
+// 加载模拟数据
+function loadMockData() {
+    // 这里填充模拟的财务数据
+    document.getElementById('health-score').textContent = '78';
+    document.getElementById('health-grade').textContent = '良好';
+    
+    // 更新其他UI元素...
+}
