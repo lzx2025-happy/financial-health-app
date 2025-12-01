@@ -7,11 +7,14 @@ require('dotenv').config();
 
 const app = express();
 
-// 环境变量检查
-if (!process.env.JWT_SECRET) {
-    console.error('❌ 错误：未设置 JWT_SECRET 环境变量');
+// ========== 修改1：兼容两个变量名 ==========
+const jwtSecret = process.env.JWT_SECRET || process.env.JMT_SECRET;
+if (!jwtSecret) {
+    console.error('❌ 错误：未设置 JWT_SECRET 或 JMT_SECRET 环境变量');
     process.exit(1);
 }
+console.log('🔑 JWT密钥状态:', jwtSecret ? '已设置' : '未设置');
+// ========== 修改结束 ==========
 
 // 中间件
 app.use(cors());
@@ -19,7 +22,6 @@ app.use(express.json());
 
 // ========== 数据库连接处理 - 增强版 ==========
 console.log('🔍 检查环境变量...');
-console.log('JWT_SECRET:', process.env.JWT_SECRET ? '已设置' : '未设置');
 
 // 尝试获取 MongoDB 连接字符串的多种可能名称
 let mongoURI = process.env.MONGODB_URI || process.env.DATABASE_URL || process.env.MONGO_URL;
@@ -79,7 +81,10 @@ const authMiddleware = async (req, res, next) => {
             return res.status(401).json({ message: '未提供认证令牌' });
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // ========== 修改2：使用 jwtSecret 变量 ==========
+        const decoded = jwt.verify(token, jwtSecret);
+        // ========== 修改结束 ==========
+        
         const user = await User.findById(decoded.userId);
         if (!user) {
             return res.status(401).json({ message: '认证失败' });
@@ -126,11 +131,13 @@ app.post('/api/auth/register', async (req, res) => {
         await user.save();
 
         // 生成JWT令牌
+        // ========== 修改3：使用 jwtSecret 变量 ==========
         const token = jwt.sign(
             { userId: user._id },
-            process.env.JWT_SECRET,
+            jwtSecret,
             { expiresIn: '7d' }
         );
+        // ========== 修改结束 ==========
 
         res.status(201).json({
             message: '用户创建成功',
@@ -164,11 +171,13 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         // 生成JWT令牌
+        // ========== 修改4：使用 jwtSecret 变量 ==========
         const token = jwt.sign(
             { userId: user._id },
-            process.env.JWT_SECRET,
+            jwtSecret,
             { expiresIn: '7d' }
         );
+        // ========== 修改结束 ==========
 
         res.json({
             message: '登录成功',
