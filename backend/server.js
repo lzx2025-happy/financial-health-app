@@ -1,3 +1,4 @@
+require('dotenv').config({ path: require('path').join(__dirname, '.env.local') });
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -14,8 +15,7 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-2023-financial-health';
 
 // 数据库配置 - Railway 会自动注入 MONGODB_URI
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://mongo:27017/financial_health';
-
+const MONGODB_URI = 'mongodb://mongo:YcOzJNfIcWCHoeeXIyXojbTdKuLJfzH@crossover.proxy.rlwy.net:42773/admin?authSource=admin';
 // CORS 配置
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 
@@ -460,4 +460,3 @@ process.on('SIGTERM', () => {
 });
 
 module.exports = app;
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
