@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API连接测试</title>
+</head>
+<body>
+    <h1>金融健康应用API测试</h1>
+    <button onclick="testConnection()">测试连接</button>
+    <div id="result"></div>
+
+    <script>
+        const API_BASE = 'https://financial-health-app-up.railway.app';
+        
+        async function testConnection() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>测试中...</p>';
+            
+            const endpoints = [
+                { name: '健康检查', path: '/health', method: 'GET' },
+                { name: '公开测试', path: '/api/public/test', method: 'GET' },
+                { name: 'Dashboard (需认证)', path: '/api/dashboard', method: 'GET' }
+            ];
+            
+            let results = [];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(API_BASE + endpoint.path, {
+                        method: endpoint.method
+                    });
+                    
+                    const status = response.status;
+                    const ok = response.ok;
+                    let data = null;
+                    
+                    if (ok) {
+                        data = await response.json();
+                    }
+                    
+                    results.push({
+                        name: endpoint.name,
+                        status,
+                        ok,
+                        data: data ? JSON.stringify(data).substring(0, 100) : null
+                    });
+                    
+                } catch (error) {
+                    results.push({
+                        name: endpoint.name,
+                        error: error.message
+                    });
+                }
+            }
+            
+            // 显示结果
+            let html = '<h3>测试结果：</h3>';
+            results.forEach(r => {
+                if (r.ok) {
+                    html += `<div style="color:green; margin:10px 0; padding:10px; background:#f0fff0; border-radius:5px;">
+                        <strong>✅ ${r.name}</strong><br>
+                        状态: HTTP ${r.status}<br>
+                        响应: ${r.data}
+                    </div>`;
+                } else if (r.error) {
+                    html += `<div style="color:red; margin:10px 0; padding:10px; background:#fff0f0; border-radius:5px;">
+                        <strong>❌ ${r.name}</strong><br>
+                        错误: ${r.error}
+                    </div>`;
+                } else {
+                    html += `<div style="color:orange; margin:10px 0; padding:10px; background:#fff9f0; border-radius:5px;">
+                        <strong>⚠️ ${r.name}</strong><br>
+                        状态: HTTP ${r.status} (需认证或CORS问题)
+                    </div>`;
+                }
+            });
+            
+            resultDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

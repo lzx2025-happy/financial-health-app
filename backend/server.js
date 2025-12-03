@@ -50,11 +50,12 @@ if (NODE_ENV === 'production' && !JWT_SECRET.includes('dev-secret')) {
 }
 
 // ========== 中间件配置 ==========
+// 第54-60行修改为：
 app.use(cors({
-  origin: CORS_ORIGIN === '*' ? '*' : CORS_ORIGIN,
+  origin: '*',  // 临时允许所有来源
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 app.use(express.json());
@@ -240,6 +241,15 @@ app.get('/', (req, res) => {
       login: 'POST /api/auth/login',
       dashboard: 'GET /api/dashboard (需要认证)'
     }
+  });
+});
+app.get('/api/public/test', (req, res) => {
+  res.json({ 
+    success: true,
+    message: '金融健康应用API测试成功',
+    timestamp: new Date().toISOString(),
+    cors: 'enabled',
+    database: dbConnected ? 'connected' : 'disconnected'
   });
 });
 
