@@ -1,4 +1,6 @@
-require('dotenv').config({ path: require('path').join(__dirname, '.env.local') });
+
+console.log('🔍 收到的 MONGODB_URL:', process.env.MONGODB_URL ? '已设置' : '未设置');
+console.log('🔍 完整字符串:', process.env.MONGODB_URL);require('dotenv').config({ path: require('path').join(__dirname, '.env.local') });
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
