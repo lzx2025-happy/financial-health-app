@@ -129,20 +129,35 @@ async function connectDatabase() {
   }
 }
 
+// 🔥 修复：不能直接在顶层使用await
 // 立即执行数据库连接
-const dbConnected = await connectDatabase();
+let dbConnected = false;
+
+// 使用立即执行的异步函数来连接数据库
+(async function connectDB() {
+  try {
+    dbConnected = await connectDatabase();
+    console.log(`✅ 数据库连接状态: ${dbConnected ? '已连接' : '未连接'}`);
+  } catch (error) {
+    console.error('数据库连接初始化失败:', error.message);
+    dbConnected = false;
+  }
+})();
 
 // 监听连接事件
 mongoose.connection.on('connected', () => {
   console.log('📊 MongoDB 已连接');
+  dbConnected = true;
 });
 
 mongoose.connection.on('error', (err) => {
   console.error('⚠️  MongoDB 连接错误:', err.message);
+  dbConnected = false;
 });
 
 mongoose.connection.on('disconnected', () => {
   console.log('⚠️  MongoDB 连接断开');
+  dbConnected = false;
 });
 
 // ========== 数据模型 ==========

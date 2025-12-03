@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "个人财务健康智能评估系统",
   "main": "backend/server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
