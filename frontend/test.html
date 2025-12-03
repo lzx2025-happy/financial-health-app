@@ -1,80 +1,69 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>API连接测试</title>
+    <title>CORS测试</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .success { color: green; background: #f0fff0; padding: 10px; margin: 10px 0; }
+        .error { color: red; background: #fff0f0; padding: 10px; margin: 10px 0; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; }
+    </style>
 </head>
 <body>
-    <h1>金融健康应用API测试</h1>
-    <button onclick="testConnection()">测试连接</button>
-    <div id="result"></div>
+    <h1>CORS连接测试</h1>
+    <button onclick="testEndpoint('/health')">测试 /health</button>
+    <button onclick="testEndpoint('/api/public/test')">测试 /api/public/test</button>
+    <button onclick="testAll()">测试全部</button>
+    
+    <div id="results"></div>
 
     <script>
-        const API_BASE = 'https://financial-health-app-up.railway.app';
+        const BASE_URL = 'https://financial-health-app-up.railway.app';
         
-        async function testConnection() {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = '<p>测试中...</p>';
+        async function testEndpoint(path) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `<p>测试 ${path} ...</p>`;
             
-            const endpoints = [
-                { name: '健康检查', path: '/health', method: 'GET' },
-                { name: '公开测试', path: '/api/public/test', method: 'GET' },
-                { name: 'Dashboard (需认证)', path: '/api/dashboard', method: 'GET' }
-            ];
+            try {
+                const start = Date.now();
+                const response = await fetch(BASE_URL + path);
+                const time = Date.now() - start;
+                
+                const data = await response.json();
+                
+                resultsDiv.innerHTML = `
+                    <div class="success">
+                        <strong>✅ ${path} 成功！</strong><br>
+                        状态码: ${response.status}<br>
+                        响应时间: ${time}ms<br>
+                        响应: ${JSON.stringify(data)}
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ ${path} 失败！</strong><br>
+                        错误: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        async function testAll() {
+            const endpoints = ['/', '/health', '/api/public/test'];
+            let html = '<h3>完整测试结果：</h3>';
             
-            let results = [];
-            
-            for (const endpoint of endpoints) {
+            for (const path of endpoints) {
                 try {
-                    const response = await fetch(API_BASE + endpoint.path, {
-                        method: endpoint.method
-                    });
-                    
-                    const status = response.status;
-                    const ok = response.ok;
-                    let data = null;
-                    
-                    if (ok) {
-                        data = await response.json();
-                    }
-                    
-                    results.push({
-                        name: endpoint.name,
-                        status,
-                        ok,
-                        data: data ? JSON.stringify(data).substring(0, 100) : null
-                    });
-                    
+                    const response = await fetch(BASE_URL + path);
+                    const data = await response.json();
+                    html += `<div class="success">✅ ${path} - HTTP ${response.status}</div>`;
                 } catch (error) {
-                    results.push({
-                        name: endpoint.name,
-                        error: error.message
-                    });
+                    html += `<div class="error">❌ ${path} - ${error.message}</div>`;
                 }
             }
             
-            // 显示结果
-            let html = '<h3>测试结果：</h3>';
-            results.forEach(r => {
-                if (r.ok) {
-                    html += `<div style="color:green; margin:10px 0; padding:10px; background:#f0fff0; border-radius:5px;">
-                        <strong>✅ ${r.name}</strong><br>
-                        状态: HTTP ${r.status}<br>
-                        响应: ${r.data}
-                    </div>`;
-                } else if (r.error) {
-                    html += `<div style="color:red; margin:10px 0; padding:10px; background:#fff0f0; border-radius:5px;">
-                        <strong>❌ ${r.name}</strong><br>
-                        错误: ${r.error}
-                    </div>`;
-                } else {
-                    html += `<div style="color:orange; margin:10px 0; padding:10px; background:#fff9f0; border-radius:5px;">
-                        <strong>⚠️ ${r.name}</strong><br>
-                        状态: HTTP ${r.status} (需认证或CORS问题)
-                    </div>`;
-                }
-            });
-            
-            resultDiv.innerHTML = html;
+            document.getElementById('results').innerHTML = html;
         }
     </script>
 </body>

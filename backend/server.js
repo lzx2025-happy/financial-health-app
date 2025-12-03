@@ -13,7 +13,8 @@ const jwt = require('jsonwebtoken');
 const app = express();
 
 // ========== 环境变量配置 ==========
-const PORT = process.env.PORT || 3000;
+// 修改第360行：
+const PORT = process.env.PORT || 8080;  // 与日志显示的端口一致
 
 // 🔥 修复：按照Railway指示，优先使用MONGO_URL
 const JWT_SECRET = process.env.JWT_SECRET || process.env.JMT_SECRET || 'dev-secret-key-2023-financial-health';
