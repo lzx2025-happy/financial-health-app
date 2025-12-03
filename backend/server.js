@@ -13,10 +13,14 @@ const jwt = require('jsonwebtoken');
 const app = express();
 
 // ========== 环境变量配置 ==========
-const PORT = process.env.PORT || 3000;  // Railway会提供PORT
+// ========== 环境变量配置 ==========
+const PORT = process.env.PORT || 3000;
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.JMT_SECRET || 'dev-secret-key-2023-financial-health';
-const MONGODB_URI = process.env.MONGO_URL || process.env.DATABASE_URL || process.env.MONGODB_URL || process.env.MONGOOD_URL || 'mongodb://localhost:27017/financial_health';
+
+// 🔥 关键修复：确保只使用 MONGO_URL，且优先使用环境变量
+const MONGODB_URI = process.env.MONGO_URL || 'mongodb://localhost:27017/financial_health';
+
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // ========== 启动日志 ==========
@@ -58,95 +62,68 @@ if (!MONGODB_URI) {
 const safeURI = MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
 console.log(`🔗 使用连接字符串: ${safeURI}`);
 
-// 修改数据库连接部分（第60-100行左右）
+// ========== 数据库连接 ==========
+console.log('\n🔄 连接数据库中...');
 
-// 修改数据库连接部分
-async function connectDatabase() {
+// 🔥 关键修复：延迟数据库连接，不阻塞服务器启动
+let dbConnected = false;
+
+async function initDatabaseConnection() {
+  if (!MONGODB_URI) {
+    console.error('❌ 错误：MongoDB 连接字符串未设置！');
+    console.log('⚠️  应用将以无数据库模式运行');
+    return;
+  }
+
+  const safeURI = MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
+  console.log(`🔗 使用连接字符串: ${safeURI}`);
+  
   try {
     console.log('🔄 正在连接 MongoDB...');
     
-    // 获取连接字符串
-    const connectionString = process.env.MONGO_URL;
-    console.log('🔍 连接字符串:', connectionString ? '已设置' : '未设置');
-    
-    if (!connectionString) {
-      console.error('❌ MONGO_URL 环境变量未设置！');
-      console.log('💡 Railway应该自动提供这个变量');
-      return false;
-    }
-    
-    // 安全显示连接字符串（隐藏密码）
-    const safeString = connectionString.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
-    console.log(`🔗 连接字符串: ${safeString}`);
-    
-    // 设置较短的超时时间
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('数据库连接超时(10秒)')), 10000);
-    });
-    
-    // 尝试连接
-    const connectPromise = mongoose.connect(connectionString, {
+    // 设置连接超时
+    await mongoose.connect(MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 10000,
     });
     
-    // 使用Promise.race确保不会无限等待
-    await Promise.race([connectPromise, timeoutPromise]);
-    
     console.log('✅ MongoDB 连接成功！');
     console.log(`   数据库: ${mongoose.connection.name}`);
     console.log(`   主机: ${mongoose.connection.host}`);
     console.log(`   端口: ${mongoose.connection.port}`);
+    dbConnected = true;
     
-    return true;
+    mongoose.connection.on('error', (err) => {
+      console.error('⚠️  MongoDB 连接错误:', err.message);
+      dbConnected = false;
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      console.log('⚠️  MongoDB 连接断开');
+      dbConnected = false;
+    });
+    
   } catch (error) {
     console.error('❌ MongoDB 连接失败:');
     console.error(`   错误: ${error.message}`);
     console.error(`   错误类型: ${error.name}`);
     
-    // 显示更多调试信息
-    if (error.name === 'MongoParseError') {
-      console.error('💡 提示: 连接字符串格式错误');
-    } else if (error.name === 'MongoNetworkError') {
-      console.error('💡 提示: 网络连接失败，请检查:');
-      console.error('   1. Railway MongoDB服务状态');
-      console.error('   2. 网络连通性');
-      console.error('   3. IP白名单设置');
+    if (error.name === 'MongoNetworkError') {
+      console.error('💡 提示: 网络连接失败，可能原因:');
+      console.error('   1. Railway MongoDB服务未启动');
+      console.error('   2. 连接字符串错误');
+      console.error('   3. IP/端口限制');
     }
     
-    return false;
+    console.log('⚠️  应用将以无数据库模式运行');
+    dbConnected = false;
   }
 }
 
-let dbConnected = false;
-
-(async function connectDB() {
-  try {
-    dbConnected = await connectDatabase();
-    console.log(`✅ 数据库连接状态: ${dbConnected ? '已连接' : '未连接'}`);
-  } catch (error) {
-    console.error('数据库连接初始化失败:', error.message);
-    dbConnected = false;
-  }
-})();
-
-mongoose.connection.on('connected', () => {
-  console.log('📊 MongoDB 已连接');
-  dbConnected = true;
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('⚠️  MongoDB 连接错误:', err.message);
-  dbConnected = false;
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('⚠️  MongoDB 连接断开');
-  dbConnected = false;
-});
-
+// 🔥 关键修复：延迟启动数据库连接，不阻塞服务器
+// 服务器启动后再尝试连接数据库
 // ========== 数据模型 ==========
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -561,7 +538,7 @@ app.use((err, req, res, next) => {
 });
 
 // ========== 启动服务器 ==========
-const server = app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log('\n✅ ========== 服务器启动成功 ==========');
   console.log(`📍 监听地址: 0.0.0.0:${PORT}`);
   console.log(`🌐 对外访问: https://financial-health-app-up.railway.app`);
@@ -571,9 +548,13 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔐 注册接口: POST /api/auth/register`);
   console.log(`🔑 登录接口: POST /api/auth/login`);
   console.log(`📈 仪表盘: GET /api/dashboard (需要认证)`);
-  console.log(`💾 数据库状态: ${dbConnected ? '已连接' : '未连接'}`);
   console.log(`⏰ 启动时间: ${new Date().toISOString()}`);
   console.log(`======================================\n`);
+  
+  // 🔥 关键修复：服务器启动后，再异步连接数据库
+  // 这样即使数据库连接失败，API路由依然可用
+  await initDatabaseConnection();
+  console.log(`💾 数据库状态: ${dbConnected ? '已连接' : '未连接'}`);
 });
 
 // 优雅关闭
@@ -581,10 +562,14 @@ process.on('SIGTERM', () => {
   console.log('🛑 收到 SIGTERM 信号，正在关闭服务器...');
   server.close(() => {
     console.log('✅ 服务器已关闭');
-    mongoose.connection.close(false, () => {
-      console.log('✅ 数据库连接已关闭');
+    if (mongoose.connection.readyState === 1) {
+      mongoose.connection.close(false, () => {
+        console.log('✅ 数据库连接已关闭');
+        process.exit(0);
+      });
+    } else {
       process.exit(0);
-    });
+    }
   });
 });
 
