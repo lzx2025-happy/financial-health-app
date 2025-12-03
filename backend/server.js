@@ -13,14 +13,10 @@ const jwt = require('jsonwebtoken');
 const app = express();
 
 // ========== 环境变量配置 ==========
-// 修改第360行：
-const PORT = process.env.PORT || 8080;  // 与日志显示的端口一致
+const PORT = process.env.PORT || 3000;  // Railway会提供PORT
 
-// 🔥 修复：按照Railway指示，优先使用MONGO_URL
 const JWT_SECRET = process.env.JWT_SECRET || process.env.JMT_SECRET || 'dev-secret-key-2023-financial-health';
 const MONGODB_URI = process.env.MONGO_URL || process.env.DATABASE_URL || process.env.MONGODB_URL || process.env.MONGOOD_URL || 'mongodb://localhost:27017/financial_health';
-
-const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // ========== 启动日志 ==========
@@ -30,30 +26,14 @@ console.log(`🌍 环境: ${NODE_ENV}`);
 console.log(`📡 端口: ${PORT}`);
 console.log(`🔐 JWT_SECRET 已设置: ${!!JWT_SECRET}`);
 console.log(`🗄️  MONGODB_URI 已设置: ${!!MONGODB_URI}`);
-console.log(`🔍 MONGO_URL 已设置: ${!!process.env.MONGO_URL}`);
-console.log(`🔍 DATABASE_URL 已设置: ${!!process.env.DATABASE_URL}`);
-console.log(`🔍 MONGODB_URL 已设置: ${!!process.env.MONGODB_URL}`);
-console.log(`🎯 CORS_ORIGIN: ${CORS_ORIGIN}`);
-
-// 显示所有相关变量值（安全地）
-if (process.env.MONGO_URL) {
-  console.log(`🔑 MONGO_URL: ${process.env.MONGO_URL.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`);
-}
-if (process.env.DATABASE_URL) {
-  console.log(`🔑 DATABASE_URL: ${process.env.DATABASE_URL.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`);
-}
-if (process.env.MONGODB_URL) {
-  console.log(`🔑 MONGODB_URL: ${process.env.MONGODB_URL.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`);
-}
 
 if (NODE_ENV === 'production' && !JWT_SECRET.includes('dev-secret')) {
   console.warn('⚠️  警告：生产环境未设置 JWT_SECRET，使用默认值不安全！');
 }
 
 // ========== 中间件配置 ==========
-// 第54-60行修改为：
 app.use(cors({
-  origin: '*',  // 临时允许所有来源
+  origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -67,22 +47,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// ========== 数据库连接（修复版）==========
+// ========== 数据库连接 ==========
 console.log('\n🔄 连接数据库中...');
 
-// 🔥 关键修复：确保连接字符串存在
 if (!MONGODB_URI) {
   console.error('❌ 错误：MongoDB 连接字符串未设置！');
-  console.error('请按Railway指示添加 MONGO_URL 变量');
-  console.error('或设置 MONGODB_URL、DATABASE_URL 变量');
   process.exit(1);
 }
 
-// 安全地显示连接字符串（隐藏密码）
 const safeURI = MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
 console.log(`🔗 使用连接字符串: ${safeURI}`);
 
-// 🔥 关键修复：使用 async/await 确保连接成功
 async function connectDatabase() {
   try {
     console.log('🔄 正在连接 MongoDB...');
@@ -103,39 +78,20 @@ async function connectDatabase() {
     
     return true;
   } catch (error) {
-    console.error('❌ MongoDB 连接失败:');
-    console.error(`  错误类型: ${error.name}`);
-    console.error(`  错误信息: ${error.message}`);
+    console.error('❌ MongoDB 连接失败:', error.message);
     
-    if (error.name === 'MongoParseError') {
-      console.error('💡 提示: 连接字符串格式错误，请检查是否包含特殊字符');
-    } else if (error.name === 'MongoNetworkError') {
-      console.error('💡 提示: 网络连接失败，请检查:');
-      console.error('  1. Railway 网络设置');
-      console.error('  2. 数据库端口是否开放');
-      console.error('  3. IP 白名单设置');
-    } else if (error.name === 'MongoServerError') {
-      console.error('💡 提示: 认证失败，请检查用户名密码是否正确');
-    }
-    
-    // 显示实际使用的连接字符串（安全地）
-    console.error(`💡 实际使用的连接字符串: ${safeURI}`);
-    
-    // 生产环境中，继续运行但记录错误
     if (NODE_ENV === 'production') {
       console.log('⚠️  生产环境继续运行，但数据库不可用');
       return false;
     } else {
-      process.exit(1);
+      console.log('⚠️  开发环境继续运行，使用模拟数据');
+      return false;
     }
   }
 }
 
-// 🔥 修复：不能直接在顶层使用await
-// 立即执行数据库连接
 let dbConnected = false;
 
-// 使用立即执行的异步函数来连接数据库
 (async function connectDB() {
   try {
     dbConnected = await connectDatabase();
@@ -146,7 +102,6 @@ let dbConnected = false;
   }
 })();
 
-// 监听连接事件
 mongoose.connection.on('connected', () => {
   console.log('📊 MongoDB 已连接');
   dbConnected = true;
@@ -225,7 +180,7 @@ const authMiddleware = async (req, res, next) => {
 
 // ========== API 路由 ==========
 
-// 1. 健康检查（包含数据库状态）
+// 1. 根路径
 app.get('/', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   res.json({
@@ -238,22 +193,16 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     endpoints: {
       health: '/health',
+      test: '/test',
+      publicTest: '/api/public/test',
       register: 'POST /api/auth/register',
       login: 'POST /api/auth/login',
       dashboard: 'GET /api/dashboard (需要认证)'
     }
   });
 });
-app.get('/api/public/test', (req, res) => {
-  res.json({ 
-    success: true,
-    message: '金融健康应用API测试成功',
-    timestamp: new Date().toISOString(),
-    cors: 'enabled',
-    database: dbConnected ? 'connected' : 'disconnected'
-  });
-});
 
+// 2. 健康检查
 app.get('/health', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   res.status(200).json({ 
@@ -268,10 +217,33 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 2. 用户注册
+// 3. 简单测试
+app.get('/test', (req, res) => {
+  res.json({ 
+    success: true,
+    message: '简单测试成功',
+    timestamp: new Date().toISOString(),
+    port: PORT,
+    environment: NODE_ENV
+  });
+});
+
+// 4. 公开测试端点
+app.get('/api/public/test', (req, res) => {
+  res.json({ 
+    success: true,
+    message: '金融健康应用API测试成功',
+    timestamp: new Date().toISOString(),
+    cors: 'enabled',
+    database: dbConnected ? 'connected' : 'disconnected',
+    port: PORT,
+    environment: NODE_ENV
+  });
+});
+
+// 5. 用户注册
 app.post('/api/auth/register', async (req, res) => {
   try {
-    // 如果数据库没连接，返回错误
     if (!dbConnected) {
       return res.status(503).json({
         success: false,
@@ -334,10 +306,9 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// 3. 用户登录
+// 6. 用户登录
 app.post('/api/auth/login', async (req, res) => {
   try {
-    // 如果数据库没连接，返回错误
     if (!dbConnected) {
       return res.status(503).json({
         success: false,
@@ -398,7 +369,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// 4. 获取当前用户信息
+// 7. 获取当前用户信息
 app.get('/api/auth/me', authMiddleware, (req, res) => {
   res.json({
     success: true,
@@ -413,10 +384,9 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
   });
 });
 
-// 5. 仪表盘数据
+// 8. 仪表盘数据
 app.get('/api/dashboard', authMiddleware, async (req, res) => {
   try {
-    // 如果数据库没连接，返回错误
     if (!dbConnected) {
       return res.status(503).json({
         success: false,
@@ -472,10 +442,9 @@ app.get('/api/dashboard', authMiddleware, async (req, res) => {
   }
 });
 
-// 6. 交易管理 API
+// 9. 交易管理 API
 app.post('/api/transactions', authMiddleware, async (req, res) => {
   try {
-    // 如果数据库没连接，返回错误
     if (!dbConnected) {
       return res.status(503).json({
         success: false,
@@ -519,7 +488,6 @@ app.post('/api/transactions', authMiddleware, async (req, res) => {
 
 app.get('/api/transactions', authMiddleware, async (req, res) => {
   try {
-    // 如果数据库没连接，返回错误
     if (!dbConnected) {
       return res.status(503).json({
         success: false,
@@ -543,7 +511,7 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
   }
 });
 
-// 7. 404 处理
+// 10. 404 处理
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -552,7 +520,7 @@ app.use((req, res) => {
   });
 });
 
-// 8. 错误处理中间件
+// 11. 错误处理中间件
 app.use((err, req, res, next) => {
   console.error('🚨 未捕获的错误:', err);
   res.status(500).json({
@@ -563,11 +531,13 @@ app.use((err, req, res, next) => {
 });
 
 // ========== 启动服务器 ==========
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('\n✅ ========== 服务器启动成功 ==========');
-  console.log(`📍 本地访问: http://localhost:${PORT}`);
-  console.log(`🌐 对外访问: https://你的项目.up.railway.app`);
+  console.log(`📍 监听地址: 0.0.0.0:${PORT}`);
+  console.log(`🌐 对外访问: https://financial-health-app-up.railway.app`);
   console.log(`📊 健康检查: /health`);
+  console.log(`🔍 简单测试: /test`);
+  console.log(`🔍 公开测试: /api/public/test`);
   console.log(`🔐 注册接口: POST /api/auth/register`);
   console.log(`🔑 登录接口: POST /api/auth/login`);
   console.log(`📈 仪表盘: GET /api/dashboard (需要认证)`);
