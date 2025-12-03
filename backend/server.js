@@ -8,18 +8,13 @@ const jwt = require('jsonwebtoken');
 const app = express();
 
 // ========== 环境变量配置 ==========
-// Railway 会自动提供 PORT 变量
 const PORT = process.env.PORT || 3000;
-
-// 密钥配置 - Railway 优先
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-2023-financial-health';
 
-// 数据库配置 - Railway 会自动注入 MONGODB_URI
-const MONGODB_URI = 'mongodb://mongo:YcOzJNfIcWCHoeeXIyXojbTdKuLJfzH@crossover.proxy.rlwy.net:42773/admin?authSource=admin';
-// CORS 配置
-const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+// 🔥 修复：添加更多可能的变量名，Railway 可能用 DATABASE_URL
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL || process.env.DATABASE_URL;
 
-// 环境类型
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // ========== 启动日志 ==========
@@ -27,14 +22,12 @@ console.log('\n🚀 ========== 金融健康应用启动 ==========');
 console.log(`📅 时间: ${new Date().toISOString()}`);
 console.log(`🌍 环境: ${NODE_ENV}`);
 console.log(`📡 端口: ${PORT}`);
-console.log(`🔐 JWT_SECRET 已设置: ${!!process.env.JWT_SECRET}`);
-console.log(`🗄️  MONGODB_URI 已设置: ${!!process.env.MONGODB_URI}`);
+console.log(`🔐 JWT_SECRET 已设置: ${!!JWT_SECRET}`);
+console.log(`🗄️  MONGODB_URI 已设置: ${!!MONGODB_URI}`);
 console.log(`🎯 CORS_ORIGIN: ${CORS_ORIGIN}`);
 
-// 安全警告
 if (NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   console.warn('⚠️  警告：生产环境未设置 JWT_SECRET，使用默认值不安全！');
-  console.warn('💡 请在 Railway 中添加环境变量：JWT_SECRET');
 }
 
 // ========== 中间件配置 ==========
@@ -48,35 +41,74 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 请求日志中间件
 app.use((req, res, next) => {
   console.log(`📥 ${req.method} ${req.path} - ${new Date().toISOString()}`);
   next();
 });
 
-// ========== 数据库连接 ==========
+// ========== 数据库连接（修复版）==========
 console.log('\n🔄 连接数据库中...');
 
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  retryWrites: true,
-  w: 'majority'
-});
+// 🔥 关键修复：确保连接字符串存在
+if (!MONGODB_URI) {
+  console.error('❌ 错误：MongoDB 连接字符串未设置！');
+  console.error('请在 Railway 环境变量中设置：MONGODB_URI、MONGODB_URL 或 DATABASE_URL');
+  process.exit(1);
+}
 
+// 安全地显示连接字符串（隐藏密码）
+const safeURI = MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
+console.log(`🔗 使用连接字符串: ${safeURI}`);
+
+// 🔥 关键修复：使用 async/await 确保连接成功
+async function connectDatabase() {
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      retryWrites: true,
+      w: 'majority'
+    });
+    
+    console.log('✅ MongoDB 连接成功！');
+    console.log(`  数据库: ${mongoose.connection.name}`);
+    console.log(`  主机: ${mongoose.connection.host}`);
+    console.log(`  端口: ${mongoose.connection.port}`);
+  } catch (error) {
+    console.error('❌ MongoDB 连接失败:');
+    console.error(`  错误: ${error.message}`);
+    console.error(`  连接字符串: ${safeURI}`);
+    
+    if (error.name === 'MongoParseError') {
+      console.error('💡 提示: 连接字符串格式错误，请检查是否包含特殊字符');
+    } else if (error.name === 'MongoNetworkError') {
+      console.error('💡 提示: 网络连接失败，请检查:');
+      console.error('  1. Railway 网络设置');
+      console.error('  2. 数据库端口是否开放');
+      console.error('  3. IP 白名单设置');
+    }
+    
+    // 生产环境中，继续运行但记录错误
+    if (NODE_ENV === 'production') {
+      console.log('⚠️  生产环境继续运行，但数据库不可用');
+    } else {
+      process.exit(1);
+    }
+  }
+}
+
+// 立即执行数据库连接
+connectDatabase();
+
+// 监听连接事件
 mongoose.connection.on('connected', () => {
-  console.log('✅ MongoDB 连接成功！');
-  console.log(`  数据库: ${mongoose.connection.name}`);
-  console.log(`  主机: ${mongoose.connection.host}`);
-  console.log(`  端口: ${mongoose.connection.port}`);
+  console.log('📊 MongoDB 已连接');
 });
 
 mongoose.connection.on('error', (err) => {
-  console.error('❌ MongoDB 连接失败:');
-  console.error(`  错误: ${err.message}`);
-  console.error(`  连接字符串: ${MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`);
+  console.error('⚠️  MongoDB 连接错误:', err.message);
 });
 
 mongoose.connection.on('disconnected', () => {
@@ -146,15 +178,15 @@ const authMiddleware = async (req, res, next) => {
 
 // ========== API 路由 ==========
 
-// 1. 健康检查
+// 1. 健康检查（包含数据库状态）
 app.get('/', (req, res) => {
   res.json({
     success: true,
     message: '金融健康应用后端服务',
     version: '1.0.0',
     environment: NODE_ENV,
-    timestamp: new Date().toISOString(),
-    documentation: '/api-docs'
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -176,7 +208,6 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // 验证输入
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -184,7 +215,14 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
 
-    // 检查用户是否已存在
+    // 检查数据库连接
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: '数据库连接异常，请稍后重试'
+      });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({
@@ -193,7 +231,6 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
 
-    // 创建用户
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({ 
       name, 
@@ -203,7 +240,6 @@ app.post('/api/auth/register', async (req, res) => {
     
     await user.save();
 
-    // 生成令牌
     const token = jwt.sign(
       { userId: user._id, email: user.email },
       JWT_SECRET,
@@ -245,7 +281,6 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // 查找用户
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
       return res.status(401).json({
@@ -254,7 +289,6 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // 验证密码
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -263,7 +297,6 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // 生成令牌
     const token = jwt.sign(
       { userId: user._id, email: user.email },
       JWT_SECRET,
@@ -310,10 +343,8 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
 // 5. 仪表盘数据
 app.get('/api/dashboard', authMiddleware, async (req, res) => {
   try {
-    // 获取用户的交易记录
     const transactions = await Transaction.find({ userId: req.user._id });
     
-    // 计算财务指标
     const totalIncome = transactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
@@ -324,7 +355,6 @@ app.get('/api/dashboard', authMiddleware, async (req, res) => {
     
     const balance = totalIncome - totalExpense;
     
-    // 财务健康评分（简单计算）
     const healthScore = Math.min(100, Math.max(0, 
       balance > 0 ? 70 + (balance / totalIncome * 30) : 30
     ));
@@ -347,8 +377,8 @@ app.get('/api/dashboard', authMiddleware, async (req, res) => {
           .slice(0, 5),
         serverInfo: {
           environment: NODE_ENV,
-          timestamp: new Date().toISOString(),
-          service: 'Railway 部署'
+          database: mongoose.connection.readyState === 1 ? '正常' : '异常',
+          timestamp: new Date().toISOString()
         }
       }
     });
@@ -457,6 +487,15 @@ process.on('SIGTERM', () => {
       process.exit(0);
     });
   });
+});
+
+// 全局错误处理
+process.on('uncaughtException', (error) => {
+  console.error('🚨 未捕获的异常:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 未处理的 Promise 拒绝:', reason);
 });
 
 module.exports = app;
