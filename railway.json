@@ -1,8 +1,11 @@
 {
-  "variables": {
-    "APP_SECRET": {
-      "value": "YourSecretKey123!@#2023",
-      "description": "应用密钥"
-    }
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm install"
+  },
+  "deploy": {
+    "startCommand": "node backend/server.js",
+    "restartPolicyType": "ON_FAILURE"
   }
 }
