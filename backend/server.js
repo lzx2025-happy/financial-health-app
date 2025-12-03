@@ -58,35 +58,65 @@ if (!MONGODB_URI) {
 const safeURI = MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
 console.log(`🔗 使用连接字符串: ${safeURI}`);
 
+// 修改数据库连接部分（第60-100行左右）
+
+// 修改数据库连接部分
 async function connectDatabase() {
   try {
     console.log('🔄 正在连接 MongoDB...');
     
-    await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      retryWrites: true,
-      w: 'majority'
+    // 获取连接字符串
+    const connectionString = process.env.MONGO_URL;
+    console.log('🔍 连接字符串:', connectionString ? '已设置' : '未设置');
+    
+    if (!connectionString) {
+      console.error('❌ MONGO_URL 环境变量未设置！');
+      console.log('💡 Railway应该自动提供这个变量');
+      return false;
+    }
+    
+    // 安全显示连接字符串（隐藏密码）
+    const safeString = connectionString.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
+    console.log(`🔗 连接字符串: ${safeString}`);
+    
+    // 设置较短的超时时间
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('数据库连接超时(10秒)')), 10000);
     });
     
+    // 尝试连接
+    const connectPromise = mongoose.connect(connectionString, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+    });
+    
+    // 使用Promise.race确保不会无限等待
+    await Promise.race([connectPromise, timeoutPromise]);
+    
     console.log('✅ MongoDB 连接成功！');
-    console.log(`  数据库: ${mongoose.connection.name}`);
-    console.log(`  主机: ${mongoose.connection.host}`);
-    console.log(`  端口: ${mongoose.connection.port}`);
+    console.log(`   数据库: ${mongoose.connection.name}`);
+    console.log(`   主机: ${mongoose.connection.host}`);
+    console.log(`   端口: ${mongoose.connection.port}`);
     
     return true;
   } catch (error) {
-    console.error('❌ MongoDB 连接失败:', error.message);
+    console.error('❌ MongoDB 连接失败:');
+    console.error(`   错误: ${error.message}`);
+    console.error(`   错误类型: ${error.name}`);
     
-    if (NODE_ENV === 'production') {
-      console.log('⚠️  生产环境继续运行，但数据库不可用');
-      return false;
-    } else {
-      console.log('⚠️  开发环境继续运行，使用模拟数据');
-      return false;
+    // 显示更多调试信息
+    if (error.name === 'MongoParseError') {
+      console.error('💡 提示: 连接字符串格式错误');
+    } else if (error.name === 'MongoNetworkError') {
+      console.error('💡 提示: 网络连接失败，请检查:');
+      console.error('   1. Railway MongoDB服务状态');
+      console.error('   2. 网络连通性');
+      console.error('   3. IP白名单设置');
     }
+    
+    return false;
   }
 }
 
