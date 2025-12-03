@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-2023-financial-health';
 
 // 🔥 修复：添加更多可能的变量名，Railway 可能用 DATABASE_URL
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL || process.env.DATABASE_URL;
+const MONGODB_URI = process.env.DATABASE_URL || process.env.MONGODB_URL || 'mongodb://localhost:27017/financial_health';
 
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 const NODE_ENV = process.env.NODE_ENV || 'development';
